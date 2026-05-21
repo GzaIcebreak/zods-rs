@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZODS-RS &mdash; Zero-training Oriented Detection &amp; Segmentation for Remote Sensing</title>
+  <meta name="description" content="ZODS-RS: a training-free, closed-form pipeline for oriented detection and instance segmentation in remote-sensing and UAV imagery, built on DINOv3 + SAM2 + memory." />
+  <meta name="author" content="Zuan Gu, Tianhan Gao, Langxu Zhao" />
+
+  <!-- Open Graph / social preview -->
+  <meta property="og:title" content="ZODS-RS — Zero-training Oriented Detection & Segmentation for Remote Sensing" />
+  <meta property="og:description" content="Training-free closed-form pipeline (DINOv3 + SAM2 + memory) for HBB detection and instance segmentation on aerial/UAV imagery." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="static/images/teaser.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" type="image/svg+xml" href="static/images/favicon.svg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Castoro&family=Google+Sans:wght@400;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="container">
+      <span class="eyebrow">Under Review &middot; 2026</span>
+      <h1>ZODS-RS<br /><span class="accent">Zero-training Oriented Detection &amp; Segmentation for Remote Sensing</span></h1>
+
+      <p class="authors">
+        Zuan Gu &nbsp;&middot;&nbsp; Tianhan Gao<span class="corresp">*</span> &nbsp;&middot;&nbsp; Langxu Zhao
+      </p>
+      <p class="affil">Northeastern University, China</p>
+      <p class="emails">
+        2010497@stu.neu.edu.cn &nbsp;&middot;&nbsp; gth@swc.neu.edu.cn &nbsp;&middot;&nbsp; 2471410@stu.neu.edu.cn
+      </p>
+
+      <div class="actions">
+        <a class="btn primary" href="static/pdfs/ZODS-RS.pdf" target="_blank" rel="noopener">
+          <span class="ico">&#128196;</span> Paper (PDF)
+        </a>
+        <a class="btn disabled" aria-disabled="true">
+          <span class="ico">&#9881;</span> arXiv (coming soon)
+        </a>
+        <a class="btn disabled" aria-disabled="true">
+          <span class="ico">&lt;/&gt;</span> Code (coming soon)
+        </a>
+        <a class="btn ghost" href="#bibtex">
+          <span class="ico">&#128221;</span> BibTeX
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Teaser -->
+  <section class="teaser" aria-label="Teaser figure">
+    <div class="container">
+      <img src="static/images/teaser.jpg" alt="ZODS-RS results on FAIR1M, xView and UAV datasets — only 1 reference image per class is provided, and the model produces detection and segmentation results across the entire target dataset without any fine-tuning." />
+      <p class="caption">
+        <strong>Figure 1.</strong> Evaluated directly on different datasets without any fine-tuning. The reference set contains one exemplar image per class. Conditioned on this reference set, the model segments the entire target dataset. Results show: (1) strong generalization across sensing scales &mdash; from satellite remote sensing to low-altitude UAV imagery; (2) state-of-the-art 1-shot segmentation without training or domain adaptation; and (3) effective prediction on images of varying sizes without tiling or upscaling.
+      </p>
+    </div>
+  </section>
+
+  <!-- Abstract -->
+  <section id="abstract">
+    <div class="container">
+      <h2>Abstract</h2>
+      <p>
+        Remote-sensing and UAV applications need models that generalize across platforms and viewpoints without task-specific training. Yet training-free pipelines often falter on oriented geometry, scale/rotation variation, and crowded ports or airfields, and rarely unify detection and segmentation. We introduce <strong>ZODS-RS</strong>, a training-free, closed-form pipeline that outputs horizontal boxes (HBB) and instance masks. Built on DINOv3 dense features and SAM2-style proposals, ZODS-RS chains: <strong>PP</strong> (prototype purification via Tyler covariance), <strong>R-SEM</strong> (rotation&ndash;scale equivariant matching with separable kernels and global Hungarian assignment), and <strong>UAM</strong> (uncertainty-aware pixelwise merging with adaptive priors and optional negative prototypes). A lightweight CWLA fuses multiple DINOv3 layers.
+      </p>
+      <p>
+        On <strong>FAIR1M</strong> (HBB) we obtain mAP<sub>0.50:0.95</sub> = <strong>13.06</strong> and AP<sub>S</sub> = <strong>2.93</strong> (class-averaged over ship/airplane); on <strong>xView</strong> (HBB) we report mAP = <strong>16.69</strong>. On our UAV dataset, ZODS-RS achieves mask mIoU = <strong>31.10</strong> and improves small-object AP by <strong>+30.70</strong> over Grounded-SAM on a single 5090. This work offers a unified, no-training solution for HBB detection plus instance segmentation in aerial imagery; provides explicit closed-form formulations for PP/R-SEM/UAM tightly coupled with DINOv3; and demonstrates consistent gains on small and crowded targets and under cross-domain shifts while keeping deployment simple.
+      </p>
+    </div>
+  </section>
+
+  <!-- Method -->
+  <section id="method">
+    <div class="container">
+      <h2>Method Overview</h2>
+      <p>
+        ZODS-RS treats <em>frozen-backbone synergy with memory</em> as a first-class design principle. We adopt an inference-time engine of <strong>DINOv3 + SAM2 + Memory</strong>: DINOv3 supplies geometry-faithful dense features, SAM2 provides high-recall promptable proposals, and a persistent memory bank stores purified prototypes and informative negatives.
+      </p>
+      <p>
+        On top of this triad, three closed-form stages run without gradients or EMA: <strong>PP</strong> distills cross-source prototypes via Tyler scatter and spectral purification with OT-based anchoring; <strong>R-SEM</strong> performs rotation&ndash;scale equivariant matching with separable kernels and a global Hungarian assignment; and <strong>UAM</strong> merges pixel-level predictions under an energy-based uncertainty model with adaptive priors. A lightweight Cross-Weighted Layer Aggregation (<strong>CWLA</strong>) fuses multiple DINOv3 layers as a semantic gate that suppresses background look-alikes without fine-tuning.
+      </p>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="results">
+    <div class="container">
+      <h2>Headline Results</h2>
+      <p>
+        Under a unified HBB protocol, ZODS-RS consistently exceeds training-free / OVD baselines on xView and FAIR1M and yields the largest gains on the domain-specific UAV set &mdash; indicating practical generalization to bespoke data without any training or adaptation. mAP<sub>50:95</sub> on xView/FAIR1M improves by <strong>+1.37</strong> to <strong>+4.47</strong> over the strongest baseline; on the UAV set, by <strong>+41.69</strong>.
+      </p>
+      <div class="metric-grid">
+        <div class="metric">
+          <span class="num">13.06</span>
+          <span class="label">FAIR1M &middot; HBB mAP<sub>50:95</sub></span>
+          <span class="sub">class-averaged</span>
+        </div>
+        <div class="metric">
+          <span class="num">16.69</span>
+          <span class="label">xView &middot; HBB mAP</span>
+          <span class="sub">training-free</span>
+        </div>
+        <div class="metric">
+          <span class="num">31.10</span>
+          <span class="label">UAV &middot; mask mIoU</span>
+          <span class="sub">1-shot segmentation</span>
+        </div>
+        <div class="metric">
+          <span class="num">+30.70</span>
+          <span class="label">Small-object AP gain</span>
+          <span class="sub">vs. Grounded-SAM (single 5090)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BibTeX -->
+  <section id="bibtex">
+    <div class="container">
+      <h2>BibTeX</h2>
+      <p>If you find this work helpful, please cite it as follows. <em>(Citation key and page numbers will be finalized once the camera-ready is published.)</em></p>
+      <div class="bib-wrap">
+        <button class="copy" type="button" aria-label="Copy BibTeX to clipboard" onclick="copyBibtex(this)">Copy</button>
+<pre id="bibtex-block">@inproceedings{gu2026zodsrs,
+  title     = {{ZODS-RS}: Zero-training Oriented Detection and Segmentation for Remote Sensing},
+  author    = {Gu, Zuan and Gao, Tianhan and Zhao, Langxu},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision
+               and Pattern Recognition (CVPR) Findings},
+  year      = {2026},
+  address   = {Nashville, TN, USA},
+  note      = {To appear}
+}</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>
+        Website source on
+        <a href="https://github.com/GzaIcebreak/zods-rs" target="_blank" rel="noopener">GitHub</a>.
+        Page template adapted from the
+        <a href="https://nerfies.github.io/" target="_blank" rel="noopener">Nerfies</a>
+        project page (CC-BY-SA 4.0).
+      </p>
+      <p>&copy; 2026 Zuan Gu, Tianhan Gao, Langxu Zhao &middot; Northeastern University.</p>
+    </div>
+  </footer>
+
+  <script>
+    function copyBibtex(btn) {
+      const text = document.getElementById('bibtex-block').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const old = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = old; }, 1600);
+      }).catch(() => {
+        btn.textContent = 'Press Ctrl+C';
+      });
+    }
+  </script>
+</body>
+</html>
